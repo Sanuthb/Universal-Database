@@ -2,35 +2,35 @@
 A universal backend API to connect and perform CRUD operations on any database (PostgreSQL, MongoDB, etc.) using just the connection URL — no backend logic required. Think of it as a headless CMS powered by standard database URLs.
 
 🚀 Features
-    🔌 Connect to databases using just a connection string (NeonDB/Postgres, MongoDB, etc.)
 
-    🧱 Create tables or collections dynamically
+<li>Connect to databases using just a connection string (NeonDB/Postgres, MongoDB, etc.)</li>
+<li>Create tables or collections dynamically</li>
+<li>Perform full CRUD:</li>
+<li>Create
+  Read (select with filters)
+  Update
+  Delete</li>
+<li>
+Simple REST API interface</li>
 
-    📝 Perform full CRUD:
+<li>Built with Express.js and pg (Postgres), support for MongoDB coming soon</li>
 
-            Create
+<li>Installation</li>
 
-            Read (select with filters)
-
-            Update
-
-            Delete
-
-    💡 Simple REST API interface
-
-    ⚙️ Built with Express.js and pg (Postgres), support for MongoDB coming soon
-
-⚙️ Installation
 ```bash
 git clone https://github.com/Sanuthb/Universal-Database.git
 cd Universal-Database/backend
 npm install
 ```
+
 Create a .env file:
+
 ```bash
 PORT=9000
 ```
+
 ▶️ Running the Server
+
 ```bash
 npm run dev
 # or
@@ -40,6 +40,7 @@ node server.js
 🔗 Example Request Payloads
 🧱 Create Table (PostgreSQL)
 POST /create
+
 ```bash
 {
   "url": "<your-postgres-url>",
@@ -52,8 +53,10 @@ POST /create
   ]
 }
 ```
+
 ➕ Insert Row(s)
 POST /insert
+
 ```bash
 {
   "url": "<your-postgres-url>",
@@ -64,6 +67,7 @@ POST /insert
   ]
 }
 ```
+
 📥 Select Rows
 POST /select
 
@@ -77,6 +81,7 @@ POST /select
   "limit": 5
 }
 ```
+
 ✏️ Update Row
 POST /update
 
@@ -90,8 +95,10 @@ POST /update
   }
 }
 ```
+
 ❌ Delete Row
 POST /delete
+
 ```bash
 {
   "url": "<your-postgres-url>",
@@ -99,8 +106,9 @@ POST /delete
   "id": 1
 }
 ```
+
 🛠️ Tech Stack
-    Node.js
+Node.js
 
     Express.js
 
@@ -111,7 +119,7 @@ POST /delete
     NeonDB (serverless Postgres)
 
 📚 Roadmap
-    ✅ PostgreSQL support (via URL)
+✅ PostgreSQL support (via URL)
 
     ⏳ MongoDB (URL-based support)
 
