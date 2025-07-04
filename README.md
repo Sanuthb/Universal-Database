@@ -6,16 +6,16 @@ A universal backend API to connect and perform CRUD operations on any database (
 <li>Connect to databases using just a connection string (NeonDB/Postgres, MongoDB, etc.)</li>
 <li>Create tables or collections dynamically</li>
 <li>Perform full CRUD:</li>
-<li>Create
-  Read (select with filters)
-  Update
+<li>Create,
+  Read (select with filters),
+  Update,
   Delete</li>
 <li>
 Simple REST API interface</li>
 
 <li>Built with Express.js and pg (Postgres), support for MongoDB coming soon</li>
 
-<li>Installation</li>
+Installation
 
 ```bash
 git clone https://github.com/Sanuthb/Universal-Database.git
