@@ -1,9 +1,10 @@
 @import "tailwindcss";
+@import "@radix-ui/themes/styles.css";
 
 :root {
-  --primary-color: #191919;
+  --primary-color: #0f172a;
   --secondary-color: #dedede;
-  --accent-color: #2a2929;
+  --accent-color: #1c1c1c;
   --border-color: #2e2e2e;
 }
 
