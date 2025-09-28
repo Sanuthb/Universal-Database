@@ -1,36 +1,29 @@
 import { Database, Loader2, RefreshCw, Plus, Table, Trash2 } from "lucide-react";
 import React, { useState, useEffect } from "react";
-import { useDatabaseContext } from "../contexts/DatabaseContext";
+import { useDispatch, useSelector } from "react-redux";
 import CreateTableForm from "./CreateTableForm";
+import { fetchSchema, setSelectedTable, disconnect } from "../redux/Slice/dbSlice";
 
 const Sidebar = () => {
-  const { 
-    connection, 
-    tables, 
-    selectedTable, 
-    loading, 
-    fetchTables, 
-    selectTable, 
-    dropTable,
-    disconnect 
-  } = useDatabaseContext();
+  const dispatch = useDispatch();
+  const { connection, tables, selectedTable, loading } = useSelector((s) => s.db);
   
   const [showCreateForm, setShowCreateForm] = useState(false);
 
   useEffect(() => {
     if (connection?.connected) {
-      fetchTables();
+      dispatch(fetchSchema({ url: connection.url }));
     }
-  }, [connection, fetchTables]);
+  }, [connection, dispatch]);
 
   const handleRefresh = () => {
     if (connection?.connected) {
-      fetchTables();
+      dispatch(fetchSchema({ url: connection.url }));
     }
   };
 
   const handleTableSelect = (table) => {
-    selectTable(table);
+    dispatch(setSelectedTable(table));
   };
 
   const handleDropTable = async (tableName) => {
@@ -40,7 +33,7 @@ const Sidebar = () => {
   };
 
   const handleDisconnect = () => {
-    disconnect();
+    dispatch(disconnect());
   };
 
   if (!connection?.connected) {

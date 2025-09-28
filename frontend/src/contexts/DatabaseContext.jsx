@@ -9,6 +9,7 @@ export const DatabaseProvider = ({ children }) => {
   const [selectedTable, setSelectedTable] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [supportedDatabases, setSupportedDatabases] = useState(null);
 
   const {
     data,
@@ -24,18 +25,30 @@ export const DatabaseProvider = ({ children }) => {
     clearError
   } = useTableData();
 
-  const connect = useCallback(async (url, type = 'postgresql') => {
+  const connect = useCallback(async (url, type = 'auto') => {
     try {
       setLoading(true);
       setError(null);
       
-      const success = await testConnectionAPI(url);
+      const response = await fetch('http://localhost:9000/api/v1/db/connect', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url }),
+      });
+
+      const result = await response.json();
       
-      if (success) {
-        setConnection({ url, type, connected: true });
+      if (response.ok) {
+        setConnection({ 
+          url, 
+          type: result.type || type, 
+          connected: true 
+        });
         return true;
       } else {
-        setError('Failed to connect to database');
+        setError(result.error || 'Failed to connect to database');
         return false;
       }
     } catch (error) {
@@ -45,7 +58,7 @@ export const DatabaseProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [testConnectionAPI]);
+  }, []);
 
   const disconnect = useCallback(() => {
     setConnection(null);
@@ -64,33 +77,29 @@ export const DatabaseProvider = ({ children }) => {
       setLoading(true);
       setError(null);
       
-      // For now, we'll use a simple approach to get table names
-      // In a real implementation, you might want to add a /tables endpoint to your backend
-      const response = await fetch('http://localhost:9000/api/v1/db/read', {
+      const response = await fetch('http://localhost:9000/api/v1/db/schema', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          url: connection.url,
-          tablename: 'information_schema.tables',
-          filters: {
-            table_schema: 'public'
-          }
+          url: connection.url
         }),
       });
 
       if (response.ok) {
         const result = await response.json();
         const tableList = result.data?.map(table => ({
-          name: table.table_name,
-          type: 'table',
-          schema: [] // We'll fetch schema when needed
+          name: table.name,
+          type: table.type || 'table',
+          schema: table.columns || [],
+          foreignKeys: table.foreignKeys || []
         })) || [];
         
         setTables(tableList);
       } else {
-        setError('Failed to fetch tables');
+        const result = await response.json();
+        setError(result.error || 'Failed to fetch tables');
       }
     } catch (error) {
       console.error('Failed to fetch tables:', error);
@@ -106,45 +115,22 @@ export const DatabaseProvider = ({ children }) => {
     try {
       setLoading(true);
       
-      // Fetch table schema from information_schema
-      const response = await fetch('http://localhost:9000/api/v1/db/read', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          url: connection.url,
-          tablename: 'information_schema.columns',
-          filters: {
-            table_name: tableName,
-            table_schema: 'public'
-          }
-        }),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        const schema = result.data?.map(col => ({
-          name: col.column_name,
-          type: col.data_type,
-          nullable: col.is_nullable === 'YES',
-          primary: col.column_default?.includes('nextval') || false,
-          default: col.column_default
-        })) || [];
-        
-        // Update the table in the list with schema
-        setTables(prev => prev.map(table => 
-          table.name === tableName 
-            ? { ...table, schema }
-            : table
-        ));
+      // The schema is already fetched with tables in the new implementation
+      // This function is kept for backward compatibility
+      const table = tables.find(t => t.name === tableName);
+      if (table && table.schema && table.schema.length > 0) {
+        return table.schema;
       }
+      
+      // If schema is not available, fetch it
+      await fetchTables();
+      
     } catch (error) {
       console.error('Failed to fetch table schema:', error);
     } finally {
       setLoading(false);
     }
-  }, [connection]);
+  }, [connection, tables, fetchTables]);
 
   const selectTable = useCallback((table) => {
     setSelectedTable(table);
@@ -288,6 +274,20 @@ export const DatabaseProvider = ({ children }) => {
     return await deleteRow(connection.url, tableName, id, idColumn);
   }, [connection, deleteRow]);
 
+  const fetchSupportedDatabases = useCallback(async () => {
+    try {
+      const response = await fetch('http://localhost:9000/api/v1/db/supported-databases');
+      if (response.ok) {
+        const result = await response.json();
+        setSupportedDatabases(result);
+        return result;
+      }
+    } catch (error) {
+      console.error('Failed to fetch supported databases:', error);
+    }
+    return null;
+  }, []);
+
   return (
     <DatabaseContext.Provider
       value={{
@@ -297,6 +297,7 @@ export const DatabaseProvider = ({ children }) => {
         loading: loading || dataLoading,
         error: error || dataError,
         data,
+        supportedDatabases,
         connect,
         disconnect,
         fetchTables,
@@ -308,6 +309,7 @@ export const DatabaseProvider = ({ children }) => {
         insertTableData,
         updateTableData,
         deleteTableData,
+        fetchSupportedDatabases,
         clearError: () => {
           setError(null);
           clearError();

@@ -1,9 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Plus, X, Save, Loader2, Link, Unlink } from 'lucide-react';
-import { useDatabaseContext } from '../contexts/DatabaseContext';
+import { useDispatch, useSelector } from 'react-redux';
+import { fetchSchema } from '../redux/Slice/dbSlice';
 
 const CreateTableForm = ({ onClose }) => {
-  const { createTable, loading, error, clearError, connection, tables } = useDatabaseContext();
+  const dispatch = useDispatch();
+  const { connection, tables } = useSelector((s) => s.db);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [tableName, setTableName] = useState('');
   const [columns, setColumns] = useState([
     { name: 'id', type: 'SERIAL', notNull: true, defaultValue: '', isPrimary: true }
@@ -11,33 +15,55 @@ const CreateTableForm = ({ onClose }) => {
   const [foreignKeys, setForeignKeys] = useState([]);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
-  const columnTypes = [
-    'SERIAL',
-    'INTEGER',
-    'BIGINT',
-    'VARCHAR(255)',
-    'TEXT',
-    'BOOLEAN',
-    'TIMESTAMP',
-    'DATE',
-    'NUMERIC',
-    'JSON',
-    'UUID',
-    'DECIMAL',
-    'REAL',
-    'DOUBLE PRECISION',
-    'CHAR(1)',
-    'BYTEA'
-  ];
+  // Get database-specific column types
+  const getColumnTypes = () => {
+    if (connection?.type === 'firebase') {
+      return ['String', 'Number', 'Boolean', 'Date', 'Array', 'Object', 'Mixed'];
+    } else if (connection?.type === 'mongodb') {
+      return ['String', 'Number', 'Boolean', 'Date', 'Array', 'Object', 'Mixed', 'ObjectId'];
+    } else if (connection?.type === 'supabase') {
+      return [
+        'SERIAL', 'INTEGER', 'BIGINT', 'VARCHAR(255)', 'TEXT', 'BOOLEAN', 
+        'TIMESTAMP', 'DATE', 'NUMERIC', 'JSON', 'UUID', 'DECIMAL', 'REAL'
+      ];
+    } else {
+      // PostgreSQL default
+      return [
+        'SERIAL', 'INTEGER', 'BIGINT', 'VARCHAR(255)', 'TEXT', 'BOOLEAN',
+        'TIMESTAMP', 'DATE', 'NUMERIC', 'JSON', 'UUID', 'DECIMAL', 'REAL',
+        'DOUBLE PRECISION', 'CHAR(1)', 'BYTEA'
+      ];
+    }
+  };
+
+  const columnTypes = getColumnTypes();
+
+  // Get initial column structure based on database type
+  const getInitialColumn = () => {
+    if (connection?.type === 'firebase' || connection?.type === 'mongodb') {
+      return { name: 'id', type: 'String', required: true, defaultValue: '' };
+    } else {
+      return { name: 'id', type: 'SERIAL', notNull: true, defaultValue: '', isPrimary: true };
+    }
+  };
 
   const addColumn = () => {
-    setColumns([...columns, { 
-      name: '', 
-      type: 'VARCHAR(255)', 
-      notNull: false, 
-      defaultValue: '',
-      isPrimary: false
-    }]);
+    if (connection?.type === 'firebase' || connection?.type === 'mongodb') {
+      setColumns([...columns, { 
+        name: '', 
+        type: 'String', 
+        required: false, 
+        defaultValue: ''
+      }]);
+    } else {
+      setColumns([...columns, { 
+        name: '', 
+        type: 'VARCHAR(255)', 
+        notNull: false, 
+        defaultValue: '',
+        isPrimary: false
+      }]);
+    }
   };
 
   const removeColumn = (index) => {
@@ -73,6 +99,7 @@ const CreateTableForm = ({ onClose }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError(null);
     
     if (!tableName.trim()) {
       alert('Please enter a table name');
@@ -85,22 +112,79 @@ const CreateTableForm = ({ onClose }) => {
       return;
     }
 
-    // Format columns for backend
-    const formattedColumns = validColumns.map(col => ({
-      name: col.name,
-      type: col.isPrimary ? 'SERIAL PRIMARY KEY' : col.type,
-      notNull: col.notNull,
-      defaultValue: col.defaultValue
-    }));
+    // Format columns based on database type
+    let formattedColumns;
+    if (connection?.type === 'firebase' || connection?.type === 'mongodb') {
+      // NoSQL databases use different column structure
+      formattedColumns = validColumns.map(col => ({
+        name: col.name,
+        type: col.type,
+        required: col.required || false,
+        defaultValue: col.defaultValue
+      }));
+    } else {
+      // SQL databases (PostgreSQL, Supabase)
+      formattedColumns = validColumns.map(col => ({
+        name: col.name,
+        type: col.isPrimary ? 'SERIAL PRIMARY KEY' : col.type,
+        notNull: col.notNull,
+        defaultValue: col.defaultValue
+      }));
+    }
 
-    // Filter valid foreign keys
-    const validForeignKeys = foreignKeys.filter(fk => 
-      fk.column && fk.referenceTable && fk.referenceColumn
-    );
+    // Filter valid foreign keys (only for SQL databases)
+    const validForeignKeys = (connection?.type !== 'firebase' && connection?.type !== 'mongodb') 
+      ? foreignKeys.filter(fk => fk.column && fk.referenceTable && fk.referenceColumn)
+      : [];
 
-    const success = await createTable(tableName, formattedColumns, validForeignKeys);
-    if (success) {
+    try {
+      setLoading(true);
+      let res;
+      if (validForeignKeys.length > 0) {
+        res = await fetch('http://localhost:9000/api/v1/db/create-with-constraints', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            url: connection.url, 
+            tablename: tableName, 
+            columns: formattedColumns, 
+            foreignKeys: validForeignKeys 
+          })
+        });
+      } else {
+        const cols = formattedColumns.map(c => ({ name: c.name, type: c.type }));
+        res = await fetch('http://localhost:9000/api/v1/db/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: connection.url, tablename: tableName, columns: cols })
+        });
+      }
+      
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || j.message || 'Failed to create table');
+      }
+      
+      const result = await res.json();
+      console.log('Table creation result:', result);
+      
+      // Refresh schema
+      await dispatch(fetchSchema({ url: connection.url }));
       onClose();
+    } catch (err) {
+      console.error('Table creation error:', err);
+      
+      // Handle specific Firebase permission errors
+      if (connection?.type === 'firebase' && err.message && err.message.includes('permission')) {
+        setError(
+          'Firebase permission denied. Please update your Firestore security rules to allow read/write access during development. ' +
+          'Go to Firebase Console > Firestore Database > Rules and temporarily set: allow read, write: if true;'
+        );
+      } else {
+        setError(err.message || 'Failed to create the table');
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -129,12 +213,6 @@ const CreateTableForm = ({ onClose }) => {
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
               <div className="flex items-center gap-2">
                 <span className="text-red-700">{error}</span>
-                <button
-                  onClick={clearError}
-                  className="ml-auto text-red-600 hover:text-red-700"
-                >
-                  ×
-                </button>
               </div>
             </div>
           )}
@@ -220,12 +298,12 @@ const CreateTableForm = ({ onClose }) => {
                           <div className="flex items-center gap-2">
                             <input
                               type="checkbox"
-                              checked={column.notNull}
-                              onChange={(e) => updateColumn(index, 'notNull', e.target.checked)}
+                              checked={connection?.type === 'firebase' || connection?.type === 'mongodb' ? column.required : column.notNull}
+                              onChange={(e) => updateColumn(index, connection?.type === 'firebase' || connection?.type === 'mongodb' ? 'required' : 'notNull', e.target.checked)}
                               className="rounded"
                             />
                             <label className="text-xs font-medium text-gray-600">
-                              NOT NULL
+                              {connection?.type === 'firebase' || connection?.type === 'mongodb' ? 'Required' : 'NOT NULL'}
                             </label>
                           </div>
                           <div>
@@ -244,17 +322,19 @@ const CreateTableForm = ({ onClose }) => {
                       )}
                     </div>
                     <div className="flex items-center justify-between mt-2">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={column.isPrimary}
-                          onChange={(e) => updateColumn(index, 'isPrimary', e.target.checked)}
-                          className="rounded"
-                        />
-                        <label className="text-xs font-medium text-gray-600">
-                          Primary Key
-                        </label>
-                      </div>
+                      {(connection?.type !== 'firebase' && connection?.type !== 'mongodb') && (
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={column.isPrimary}
+                            onChange={(e) => updateColumn(index, 'isPrimary', e.target.checked)}
+                            className="rounded"
+                          />
+                          <label className="text-xs font-medium text-gray-600">
+                            Primary Key
+                          </label>
+                        </div>
+                      )}
                       {columns.length > 1 && (
                         <button
                           type="button"
@@ -270,8 +350,8 @@ const CreateTableForm = ({ onClose }) => {
               </div>
             </div>
 
-            {/* Foreign Keys */}
-            {availableTables.length > 0 && (
+            {/* Foreign Keys - Only for SQL databases */}
+            {availableTables.length > 0 && (connection?.type !== 'firebase' && connection?.type !== 'mongodb') && (
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <label className="block text-sm font-medium text-gray-700">

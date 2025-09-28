@@ -12,7 +12,10 @@ import {
   addColumn,
   dropColumn,
   addForeignKey,
-  dropForeignKey
+  dropForeignKey,
+  getSupportedDatabases,
+  getDatabaseStats,
+  testFirebaseConnection
 } from '../controllers/Dbcontrollers.js';
 
 const dbrouter = express.Router();
@@ -30,6 +33,9 @@ dbrouter.post('/add-column',addColumn);
 dbrouter.post('/drop-column',dropColumn);
 dbrouter.post('/add-foreign-key',addForeignKey);
 dbrouter.post('/drop-foreign-key',dropForeignKey);
+dbrouter.get('/supported-databases',getSupportedDatabases);
+dbrouter.get('/stats',getDatabaseStats);
+dbrouter.post('/test-firebase',testFirebaseConnection);
 
 
 

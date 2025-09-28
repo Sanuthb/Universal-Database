@@ -1,13 +1,18 @@
 import React from "react";
 import Badge from "./UI/Badge";
 import { Unplug, Database } from "lucide-react";
-import { useDatabaseContext } from "../contexts/DatabaseContext";
+import { useDispatch, useSelector } from "react-redux";
+import { disconnect } from "../redux/Slice/dbSlice";
+import { useNavigate } from "react-router-dom";
 
 const TopBar = () => {
-  const { connection, selectedTable, disconnect } = useDatabaseContext();
+  const dispatch = useDispatch();
+  const { connection, selectedTable } = useSelector((s) => s.db);
+  const navigate = useNavigate();
 
   const handleDisconnect = () => {
-    disconnect();
+    dispatch(disconnect());
+    navigate("/dashboard");
   };
 
   return (
@@ -27,13 +32,22 @@ const TopBar = () => {
               >
                 Connected
               </Badge>
-              <span className="text-sm text-gray-500">{connection.type}</span>
+              <span className="text-sm text-gray-500 capitalize">
+                {connection.type === 'postgresql' ? 'PostgreSQL' : 
+                 connection.type === 'mongodb' ? 'MongoDB' :
+                 connection.type === 'firebase' ? 'Firebase' :
+                 connection.type === 'supabase' ? 'Supabase' :
+                 connection.type}
+              </span>
             </div>
             
             {selectedTable && (
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-400">→</span>
                 <Badge>{selectedTable.name}</Badge>
+                <span className="text-xs text-gray-400">
+                  ({selectedTable.type || 'table'})
+                </span>
               </div>
             )}
           </>

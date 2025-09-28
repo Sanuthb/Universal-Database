@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Database, Plus, Trash2, Edit, Eye, EyeOff, Link, Unlink, Settings } from 'lucide-react';
-import { useDatabaseContext } from '../contexts/DatabaseContext';
+import { Database, Plus, Trash2, Link, Unlink } from 'lucide-react';
+import { useSelector } from 'react-redux';
 
 const SchemaManager = () => {
-  const { connection, tables, loading, error, clearError } = useDatabaseContext();
+  const { connection } = useSelector((s) => s.db);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [selectedTable, setSelectedTable] = useState(null);
   const [showAddColumn, setShowAddColumn] = useState(false);
   const [showAddForeignKey, setShowAddForeignKey] = useState(false);
@@ -39,6 +41,7 @@ const SchemaManager = () => {
     if (!connection?.url) return;
 
     try {
+      setLoading(true);
       const response = await fetch('http://localhost:9000/api/v1/db/schema', {
         method: 'POST',
         headers: {
@@ -47,12 +50,13 @@ const SchemaManager = () => {
         body: JSON.stringify({ url: connection.url }),
       });
 
-      if (response.ok) {
-        const result = await response.json();
-        setSchemaData(result.data);
-      }
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Failed to fetch schema');
+      setSchemaData(result.data);
     } catch (error) {
-      console.error('Failed to fetch schema data:', error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -78,7 +82,7 @@ const SchemaManager = () => {
         fetchSchemaData();
       }
     } catch (error) {
-      console.error('Failed to add column:', error);
+      setError(error.message);
     }
   };
 
@@ -102,7 +106,7 @@ const SchemaManager = () => {
         fetchSchemaData();
       }
     } catch (error) {
-      console.error('Failed to drop column:', error);
+      setError(error.message);
     }
   };
 
@@ -128,7 +132,7 @@ const SchemaManager = () => {
         fetchSchemaData();
       }
     } catch (error) {
-      console.error('Failed to add foreign key:', error);
+      setError(error.message);
     }
   };
 
@@ -152,7 +156,7 @@ const SchemaManager = () => {
         fetchSchemaData();
       }
     } catch (error) {
-      console.error('Failed to drop foreign key:', error);
+      setError(error.message);
     }
   };
 
@@ -182,12 +186,6 @@ const SchemaManager = () => {
         <div className="bg-red-50 border border-red-200 rounded-md p-4">
           <div className="flex items-center gap-2">
             <span className="text-red-700">{error}</span>
-            <button
-              onClick={clearError}
-              className="ml-auto text-red-600 hover:text-red-700"
-            >
-              ×
-            </button>
           </div>
         </div>
       )}

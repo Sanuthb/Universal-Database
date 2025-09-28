@@ -23,7 +23,7 @@ const Home = () => {
           manage data from PostgreSQL, MongoDB, and more — all through an
           intuitive CMS interface.
         </p>
-        <Link to="/dashboard" className="bg-[#08072b] rounded p-2 text-white">
+        <Link to="/login" className="bg-[#08072b] rounded p-2 text-white">
           Get Started
         </Link>
       </div>

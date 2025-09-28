@@ -1,9 +1,11 @@
-📦 Connecta
-A universal backend API to connect and perform CRUD operations on any database (PostgreSQL, MongoDB, etc.) using just the connection URL — no backend logic required. Think of it as a headless CMS powered by standard database URLs.
+📦 Connecta - Universal Multi-Database Management Tool
+A universal backend API to connect and perform CRUD operations on **multiple database types** (PostgreSQL, MongoDB, Firebase Firestore, Supabase) using just the connection URL — no backend logic required. Think of it as a headless CMS powered by standard database URLs.
 
 🚀 Features
 
-<li>Connect to databases using just a connection string (NeonDB/Postgres, MongoDB, etc.)</li>
+<li>🔌 **Multi-Database Support**: PostgreSQL/NeonDB, MongoDB, Firebase Firestore, Supabase</li>
+<li>📱 **Unified Interface**: Same API and UI for all database types</li>
+<li>🎯 **Smart Detection**: Automatic database type detection from connection strings</li>
 <li>Create tables or collections dynamically</li>
 <li>Perform full CRUD:</li>
 <li>Create,
@@ -11,10 +13,16 @@ A universal backend API to connect and perform CRUD operations on any database (
   Update,
   Delete</li>
 <li>
+**Database-Specific Features:**</li>
+<li>**PostgreSQL/NeonDB**: Foreign keys, complex queries, transactions</li>
+<li>**MongoDB**: Document storage, dynamic schema, flexible queries</li>
+<li>**Firebase**: Real-time updates, offline support, auto-scaling</li>
+<li>**Supabase**: PostgreSQL + real-time, row-level security</li>
+<li>
 Simple REST API interface</li>
 <li>Modern React frontend with intuitive UI</li>
 
-<li>Built with Express.js and pg (Postgres), support for MongoDB coming soon</li>
+<li>Built with Express.js, supports multiple database drivers</li>
 
 ## 🚀 Quick Start
 
@@ -53,11 +61,15 @@ Open your browser to `http://localhost:5173`
 
 ### Frontend Interface
 
-1. **Connect to Database**: Enter your PostgreSQL connection URL
-2. **View Tables**: All tables are automatically loaded in the sidebar
-3. **Create Tables**: Use the "Create Table" button to add new tables
+1. **Connect to Database**: 
+   - Choose your database type (PostgreSQL, MongoDB, Firebase, Supabase)
+   - Enter your connection string with auto-detection
+   - Get helpful examples for each database type
+2. **View Tables/Collections**: All tables are automatically loaded in the sidebar
+3. **Create Tables**: Use the "Create Table" button to add new tables with database-specific options
 4. **Manage Data**: Click on any table to view, edit, add, or delete data
 5. **Column Controls**: Toggle column visibility and sort data
+6. **Schema Management**: View and modify database structure with foreign key support
 
 ### API Endpoints
 
@@ -242,6 +254,8 @@ A powerful, web-based PostgreSQL database management tool with an intuitive inte
 
 ### Prerequisites
 - Node.js (v14 or higher)
+- PostgreSQL database
+- Firebase project (for authentication and Firestore)
 
 ### Installation
 
@@ -262,7 +276,15 @@ A powerful, web-based PostgreSQL database management tool with an intuitive inte
    npm install
    ```
 
-3. **Start the development servers**
+3. **Configure Firebase**
+   - Create a Firebase project at https://console.firebase.google.com/
+   - Enable Authentication (Email/Password)
+   - Enable Firestore Database
+   - Get your Firebase config from Project Settings
+   - **Connection String Format**: `firebase://project-id:api-key@auth-domain/storage-bucket`
+   - **Example**: `firebase://my-project:AIzaSyC1234567890abcdef@my-project.firebaseapp.com/my-project.appspot.com`
+
+4. **Start the development servers**
    ```bash
    # From the root directory
    npm run dev
@@ -331,6 +353,21 @@ This will start both the backend server (port 9000) and frontend development ser
 - `POST /api/v1/db/insert` - Insert data
 - `POST /api/v1/db/update` - Update data
 - `DELETE /api/v1/db/delete/:id` - Delete record
+
+### Firebase Connection
+- `POST /api/v1/firebase/connect` - Connect to Firebase using connection string
+
+### Firebase Authentication
+- `POST /api/v1/firebase/auth/signup` - User registration
+- `POST /api/v1/firebase/auth/signin` - User login
+- `POST /api/v1/firebase/auth/signout` - User logout
+
+### Firestore Operations
+- `POST /api/v1/firebase/firestore/create` - Create document
+- `POST /api/v1/firebase/firestore/read` - Read documents
+- `POST /api/v1/firebase/firestore/update` - Update document
+- `POST /api/v1/firebase/firestore/delete` - Delete document
+- `POST /api/v1/firebase/firestore/collections` - Get collections list
 
 ## Example: Creating Related Tables
 

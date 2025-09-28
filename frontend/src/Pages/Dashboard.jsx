@@ -2,10 +2,10 @@ import React from "react";
 import TopBar from "../Components/TopBar";
 import Sidebar from "../Components/Sidebar";
 import Maincontent from "../Components/Maincontent";
-import { useDatabaseContext } from "../contexts/DatabaseContext";
+import { useSelector } from "react-redux";
 
 const Dashboard = () => {
-  const {connection} = useDatabaseContext();
+  const { connection } = useSelector((s) => s.db);
 
   return (
     <div className="min-h-screen bg-gray-50 flex w-full">

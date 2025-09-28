@@ -1,19 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Edit, Trash2, Plus, RefreshCw, Loader2, Eye, EyeOff } from 'lucide-react';
-import { useDatabaseContext } from '../contexts/DatabaseContext';
+import { useDispatch, useSelector } from 'react-redux';
+import { fetchSchema } from '../redux/Slice/dbSlice';
 
 const DataTable = ({ tableName }) => {
-  const { 
-    data, 
-    loading, 
-    error, 
-    selectedTable,
-    loadTableData, 
-    insertTableData, 
-    updateTableData, 
-    deleteTableData,
-    clearError 
-  } = useDatabaseContext();
+  const dispatch = useDispatch();
+  const { connection, selectedTable } = useSelector((s) => s.db);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [data, setData] = useState([]);
 
   const [editingRow, setEditingRow] = useState(null);
   const [editData, setEditData] = useState({});
@@ -22,13 +17,30 @@ const DataTable = ({ tableName }) => {
   const [visibleColumns, setVisibleColumns] = useState(new Set());
 
   useEffect(() => {
-    if (selectedTable && selectedTable.name) {
-      loadTableData(selectedTable.name);
-      if (selectedTable.schema) {
-        setVisibleColumns(new Set(selectedTable.schema.map(col => col.name)));
-      }
+    if (selectedTable && selectedTable.name && connection?.url) {
+      (async () => {
+        setLoading(true);
+        setError(null);
+        try {
+          const res = await fetch('http://localhost:9000/api/v1/db/read', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: connection.url, tablename: selectedTable.name })
+          });
+          const j = await res.json();
+          if (!res.ok) throw new Error(j.error || 'Failed to load data');
+          setData(Array.isArray(j.data) ? j.data : []);
+          if (selectedTable.schema) {
+            setVisibleColumns(new Set(selectedTable.schema.map(col => col.name)));
+          }
+        } catch (e) {
+          setError(e.message);
+        } finally {
+          setLoading(false);
+        }
+      })();
     }
-  }, [selectedTable, loadTableData]);
+  }, [selectedTable, connection]);
 
   useEffect(() => {
     if (data.length > 0 && selectedTable?.schema) {
@@ -44,11 +56,23 @@ const DataTable = ({ tableName }) => {
 
   const handleSave = async () => {
     if (!editingRow || !tableName) return;
-
-    const success = await updateTableData(tableName, editingRow.id, editData);
-    if (success) {
+    try {
+      setLoading(true);
+      const res = await fetch('http://localhost:9000/api/v1/db/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: connection.url, tablename: tableName, id: editingRow.id, updates: editData })
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error || 'Failed to update row');
       setEditingRow(null);
       setEditData({});
+      // refresh
+      setData((prev) => prev.map(r => (r.id === j.updated?.id ? j.updated : r)));
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -59,17 +83,44 @@ const DataTable = ({ tableName }) => {
 
   const handleDelete = async (row) => {
     if (!tableName || !confirm('Are you sure you want to delete this row?')) return;
-
-    await deleteTableData(tableName, row.id);
+    try {
+      setLoading(true);
+      const res = await fetch(`http://localhost:9000/api/v1/db/delete/${row.id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: connection.url, tablename: tableName })
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error || 'Failed to delete row');
+      setData((prev) => prev.filter(r => r.id !== row.id));
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleInsert = async () => {
     if (!tableName || !insertData) return;
-
-    const success = await insertTableData(tableName, insertData);
-    if (success) {
+    try {
+      setLoading(true);
+      const res = await fetch('http://localhost:9000/api/v1/db/insert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: connection.url, tablename: tableName, values: [insertData] })
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error || 'Failed to insert');
       setShowInsertForm(false);
       setInsertData({});
+      // optimistic add or refetch
+      setData((prev) => [...prev, ...(j.data || [])]);
+      // refresh schema (optional)
+      dispatch(fetchSchema({ url: connection.url }));
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -107,12 +158,6 @@ const DataTable = ({ tableName }) => {
       <div className="bg-red-50 border border-red-200 rounded-md p-4">
         <div className="flex items-center gap-2">
           <span className="text-red-700">{error}</span>
-          <button
-            onClick={clearError}
-            className="ml-auto text-red-600 hover:text-red-700"
-          >
-            ×
-          </button>
         </div>
       </div>
     );

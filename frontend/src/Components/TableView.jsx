@@ -1,9 +1,9 @@
 import React from 'react';
 import { Table } from 'lucide-react';
-import { useDatabaseContext } from '../contexts/DatabaseContext';
+import { useSelector } from 'react-redux';
 
 const TableView = () => {
-  const { selectedTable, connection } = useDatabaseContext();
+  const { selectedTable, connection } = useSelector((s) => s.db);
 
   if (!selectedTable || !connection) {
     return null;
